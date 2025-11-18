@@ -1,282 +1,249 @@
-const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-const mobileMenu = document.getElementById('mobile-menu');
-
-mobileMenuBtn.addEventListener('click', () => {
-   mobileMenu.classList.toggle('hidden');
-});
-
-// Smooth Scrolling
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-   anchor.addEventListener('click', function (e) {
-      e.preventDefault();
-      const target = document.querySelector(this.getAttribute('href'));
-      if (target) {
-         target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-         });
-         mobileMenu.classList.add('hidden');
-      }
-   });
-});
-
-// Scroll Animation Observer
-const observerOptions = {
-   threshold: 0.1,
-   rootMargin: '0px 0px -50px 0px'
-};
-
-const observer = new IntersectionObserver((entries) => {
-   entries.forEach(entry => {
-      if (entry.isIntersecting) {
-         entry.target.classList.add('visible');
-      }
-   });
-}, observerOptions);
-
-document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-
-// Mouse Parallax for Hero Grid
-const gridBg = document.getElementById("grid-bg");
-
-window.addEventListener("mousemove", (event) => {
-   const x = event.clientX - window.innerWidth / 2;
-   const y = event.clientY - window.innerHeight / 2;
-   gridBg.style.transform = `translate(${x / 30}px, ${y / 30}px)`;
-});
-
-// GitHub API Integration
-const GITHUB_ORG = 'BengalEmpire';
-const GITHUB_API = 'https://api.github.com';
-
-// Fetch Organization Stats
-async function fetchOrgStats() {
-   try {
-      const orgResponse = await fetch(`${GITHUB_API}/orgs/${GITHUB_ORG}`);
-      const orgData = await orgResponse.json();
-
-      const reposResponse = await fetch(`${GITHUB_API}/orgs/${GITHUB_ORG}/repos?per_page=100`);
-      const repos = await reposResponse.json();
-
-      if (Array.isArray(repos)) {
-         const totalStars = repos.reduce((sum, repo) => sum + repo.stargazers_count, 0);
-         const totalForks = repos.reduce((sum, repo) => sum + repo.forks_count, 0);
-         const totalIssues = repos.reduce((sum, repo) => sum + repo.open_issues_count, 0);
-
-         const contributors = Array.isArray(orgData.public_members) ? orgData.public_members.length : 0;
-
-         displayStats({
-            repos: repos.length,
-            stars: totalStars,
-            forks: totalForks,
-            contributors: contributors
-         });
-
-         displayRepos(repos.slice(0, 6));
-         createLanguageChart(repos);
+ // Initialize AOS with performance settings
+    AOS.init({
+      duration: 1000,
+      once: true,
+      offset: 100,
+      easing: 'ease-out-cubic',
+      disable: window.innerWidth < 768 ? 'mobile' : false
+    });
+    // Enhanced Video Control with Audio Fade
+    const video = document.getElementById('scrollVideo');
+    const videoSection = document.querySelector('#video');
+    const muteBtn = document.getElementById('muteToggle');
+    let played = false;
+    let currentVolume = 0;
+    let targetVolume = 0;
+    let audioAnimationFrame = null;
+    // Smooth audio fade function
+    function smoothAudioTransition() {
+      const difference = targetVolume - currentVolume;
+      const step = difference * 0.05; // Smooth transition speed
+     
+      if (Math.abs(difference) > 0.01) {
+        currentVolume += step;
+        video.volume = Math.max(0, Math.min(1, currentVolume));
+        audioAnimationFrame = requestAnimationFrame(smoothAudioTransition);
       } else {
-         displayStats({
-            repos: 0,
-            stars: 0,
-            forks: 0,
-            contributors: 0
-         });
-         displayRepos([]);
+        currentVolume = targetVolume;
+        video.volume = currentVolume;
       }
-   } catch (error) {
-      console.error('Error fetching GitHub data:', error);
-      document.getElementById('stats-container').innerHTML = `
-                    <div class="col-span-full text-center text-gray-400">
-                        <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
-                        <p>Unable to load GitHub stats. Please check back later.</p>
-                    </div>
-                `;
-      document.getElementById('repos-container').innerHTML = `
-                    <div class="col-span-full text-center text-gray-400">
-                        <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
-                        <p>Unable to load repositories. Please visit our <a href="https://github.com/${GITHUB_ORG}" class="text-orange-500 hover:underline">GitHub page</a>.</p>
-                    </div>
-                `;
-   }
-}
-
-// Display Stats
-function displayStats(stats) {
-   const statsContainer = document.getElementById('stats-container');
-   statsContainer.innerHTML = `
-                <div class="stat-item">
-                    <div class="stat-number">${stats.repos.toLocaleString()}</div>
-                    <p class="text-gray-400 mt-2">Repositories</p>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${stats.stars.toLocaleString()}</div>
-                    <p class="text-gray-400 mt-2">Total Stars</p>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${stats.forks.toLocaleString()}</div>
-                    <p class="text-gray-400 mt-2">Total Forks</p>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${stats.contributors.toLocaleString()}</div>
-                    <p class="text-gray-400 mt-2">Contributors</p>
-                </div>
-            `;
-}
-
-// Display Repositories
-function displayRepos(repos) {
-   const reposContainer = document.getElementById('repos-container');
-   if (repos.length === 0) {
-      reposContainer.innerHTML = `
-                    <div class="col-span-full text-center text-gray-400">
-                        <i class="fas fa-folder-open text-6xl mb-4 opacity-50"></i>
-                        <p>No repositories found. <a href="https://github.com/${GITHUB_ORG}" class="text-orange-500 hover:underline">Visit GitHub</a></p>
-                    </div>
-                `;
-      return;
-   }
-
-   reposContainer.innerHTML = repos.map(repo => `
-                <div class="card repo-card fade-in" onclick="window.open('https://github.com/${GITHUB_ORG}/${repo.name}', '_blank')">
-                    <div class="flex items-center mb-4">
-                        <i class="fas fa-folder text-2xl mr-3" style="color: var(--bengal-orange);"></i>
-                        <h3 class="text-xl font-bold flex-1">${repo.name}</h3>
-                        <div class="text-sm text-gray-400">
-                            <i class="fab fa-github mr-1"></i>
-                            <a href="https://github.com/${GITHUB_ORG}/${repo.name}" target="_blank" class="hover:text-orange-500">View</a>
-                        </div>
-                    </div>
-                    ${repo.description ? `<p class="text-gray-400 mb-4">${repo.description}</p>` : ''}
-                    <div class="flex flex-wrap gap-4 text-sm">
-                        ${repo.language ? `
-                            <span class="inline-flex items-center bg-gray-800 px-2 py-1 rounded-full">
-                                <div class="w-2 h-2 rounded-full mr-2" style="background-color: ${getLanguageColor(repo.language)};"></div>
-                                ${repo.language}
-                            </span>
-                        ` : ''}
-                        <span class="inline-flex items-center text-gray-400">
-                            <i class="fas fa-star mr-1"></i> ${repo.stargazers_count}
-                        </span>
-                        <span class="inline-flex items-center text-gray-400">
-                            <i class="fas fa-code-branch mr-1"></i> ${repo.forks_count}
-                        </span>
-                        ${repo.open_issues_count > 0 ? `
-                            <span class="inline-flex items-center text-gray-400">
-                                <i class="fas fa-issue-opened mr-1"></i> ${repo.open_issues_count}
-                            </span>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
-
-   // Re-observe new fade-in elements
-   document.querySelectorAll('.repo-card').forEach(el => observer.observe(el));
-}
-
-// Get language color
-function getLanguageColor(language) {
-   const colors = {
-      'JavaScript': '#f7df1e',
-      'TypeScript': '#3178c6',
-      'Python': '#3776ab',
-      'Java': '#007396',
-      'C++': '#f34b7d',
-      'Go': '#00add8',
-      'Rust': '#dea584',
-      'HTML': '#e34f26',
-      'CSS': '#1572b6',
-      'Shell': '#89e051'
-   };
-   return colors[language] || '#6c757d';
-}
-
-// Create Language Chart
-function createLanguageChart(repos) {
-   const ctx = document.getElementById('languageChart').getContext('2d');
-
-   // Aggregate languages
-   const languageCounts = repos.reduce((acc, repo) => {
-      if (repo.language) {
-         acc[repo.language] = (acc[repo.language] || 0) + 1;
-      }
-      return acc;
-   }, {});
-
-   const labels = Object.keys(languageCounts);
-   const data = Object.values(languageCounts);
-
-   if (labels.length === 0) {
-      ctx.canvas.style.display = 'none';
-      return;
-   }
-
-   // Colors for chart (theme-friendly)
-   const colors = [
-      'rgba(245, 124, 0, 0.8)',
-      'rgba(25, 118, 210, 0.8)',
-      'rgba(67, 160, 71, 0.8)',
-      'rgba(255, 152, 0, 0.8)',
-      'rgba(21, 101, 192, 0.8)',
-      'rgba(46, 125, 50, 0.8)',
-      'rgba(233, 30, 99, 0.8)',
-      'rgba(156, 39, 176, 0.8)',
-      'rgba(0, 188, 212, 0.8)',
-      'rgba(255, 193, 7, 0.8)'
-   ];
-
-   new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-         labels: labels,
-         datasets: [{
-            data: data,
-            backgroundColor: colors.slice(0, labels.length),
-            borderColor: colors.map(c => c.replace('0.8', '1')),
-            borderWidth: 2,
-            hoverOffset: 10
-         }]
-      },
-      options: {
-         responsive: true,
-         maintainAspectRatio: false,
-         plugins: {
-            legend: {
-               position: 'bottom',
-               labels: {
-                  color: '#f5f5f5',
-                  padding: 20,
-                  usePointStyle: true
-               }
+    }
+    // Intersection Observer for video
+    const observerOptions = {
+      threshold: [0, 0.25, 0.5, 0.75, 1],
+      rootMargin: '0px'
+    };
+    const videoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const ratio = entry.intersectionRatio;
+       
+        if (entry.isIntersecting) {
+          if (!played) {
+            video.play().catch(e => console.log('Autoplay prevented:', e));
+            played = true;
+            videoSection.classList.add('active');
+          }
+         
+          // Fade in audio based on scroll position
+          if (!video.muted) {
+            targetVolume = Math.min(ratio * 1.2, 0.7); // Max 70% volume
+            if (!audioAnimationFrame) {
+              smoothAudioTransition();
             }
-         },
-         animation: {
-            animateRotate: true,
-            duration: 1500
-         }
+          }
+        } else {
+          // Fade out audio when leaving viewport
+          targetVolume = 0;
+          if (!audioAnimationFrame) {
+            smoothAudioTransition();
+          }
+        }
+      });
+    }, observerOptions);
+    videoObserver.observe(videoSection);
+    // Mute toggle with smooth transition
+    muteBtn.addEventListener('click', () => {
+      video.muted = !video.muted;
+      const icon = muteBtn.querySelector('i');
+      const text = muteBtn.querySelector('span');
+     
+      if (video.muted) {
+        icon.className = 'fas fa-volume-mute';
+        text.textContent = 'Unmute';
+        targetVolume = 0;
+      } else {
+        icon.className = 'fas fa-volume-up';
+        text.textContent = 'Mute';
+        const rect = videoSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const visibleRatio = Math.min(1, Math.max(0, (viewportHeight - rect.top) / viewportHeight));
+        targetVolume = Math.min(visibleRatio * 1.2, 0.7);
       }
-   });
-}
-
-// Initialize on load
-window.addEventListener('load', fetchOrgStats);
-
-const faqItems = document.querySelectorAll('.faq-item');
-
-faqItems.forEach(item => {
-   const question = item.querySelector('.faq-question');
-   const answer = item.querySelector('.faq-answer');
-   const plus = item.querySelector('.plus');
-
-   question.addEventListener('click', () => {
-      const isOpen = answer.classList.contains('open');
-
-      // Close all other answers
-      document.querySelectorAll('.faq-answer').forEach(a => a.classList.remove('open'));
-      document.querySelectorAll('.plus').forEach(p => p.classList.remove('rotate'));
-
-      if (!isOpen) {
-         answer.classList.add('open');
-         plus.classList.add('rotate');
+     
+      smoothAudioTransition();
+    });
+    // Mobile menu toggle with smooth animation
+    const mobileBtn = document.getElementById('mobileBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    let menuOpen = false;
+    mobileBtn.addEventListener('click', () => {
+      menuOpen = !menuOpen;
+      const icon = mobileBtn.querySelector('i');
+     
+      if (menuOpen) {
+        mobileMenu.style.maxHeight = mobileMenu.scrollHeight + 'px';
+        icon.className = 'fas fa-times';
+        mobileBtn.style.transform = 'rotate(90deg)';
+      } else {
+        mobileMenu.style.maxHeight = '0';
+        icon.className = 'fas fa-bars';
+        mobileBtn.style.transform = 'rotate(0deg)';
       }
-   });
-});
+    });
+    // Close mobile menu on link click
+    mobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (menuOpen) {
+          mobileMenu.style.maxHeight = '0';
+          mobileBtn.querySelector('i').className = 'fas fa-bars';
+          mobileBtn.style.transform = 'rotate(0deg)';
+          menuOpen = false;
+        }
+      });
+    });
+    // Navbar scroll effect
+    let lastScroll = 0;
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      const currentScroll = window.pageYOffset;
+     
+      if (currentScroll > 100) {
+        nav.style.padding = '0.5rem 0';
+        nav.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      } else {
+        nav.style.padding = '0.75rem 0 sm:1.25rem 0';
+        nav.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      }
+     
+      lastScroll = currentScroll;
+    }, { passive: true });
+    // GitHub Data with Enhanced Error Handling
+    const ORG = 'BengalEmpire';
+    let dataLoaded = false;
+    async function loadOrgData() {
+      try {
+        const [org, reposRes, membersRes] = await Promise.all([
+          fetch(`https://api.github.com/orgs/${ORG}`).then(r => { if (!r.ok) throw new Error('Failed to fetch org'); return r.json(); }),
+          fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100&sort=stars`).then(r => { if (!r.ok) throw new Error('Failed to fetch repos'); return r.json(); }),
+          fetch(`https://api.github.com/orgs/${ORG}/public_members?per_page=100`).then(r => { if (!r.ok) throw new Error('Failed to fetch members'); return r.json(); })
+        ]);
+        // Hide loader and show bio
+        const bioContainer = document.getElementById('orgBioContainer');
+        const bioElement = document.getElementById('orgBio');
+        bioContainer.style.display = 'none';
+        bioElement.innerHTML = org.description || "A fearless open-source collective reviving Bengal's golden age through code.";
+        bioElement.style.opacity = '1';
+        // Calculate stats
+        const stats = {
+          repos: reposRes.length,
+          stars: reposRes.reduce((a,r) => a + r.stargazers_count, 0),
+          forks: reposRes.reduce((a,r) => a + r.forks_count, 0),
+          members: membersRes.length,
+          topRepos: reposRes.sort((a,b) => b.stargazers_count - a.stargazers_count).slice(0, 9)
+        };
+        // Animated counter function
+        function animateCounter(element, target, duration = 2000) {
+          const start = 0;
+          const startTime = performance.now();
+         
+          function updateCounter(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+            const current = Math.floor(start + (target - start) * easeProgress);
+            element.textContent = current.toLocaleString();
+           
+            if (progress < 1) {
+              requestAnimationFrame(updateCounter);
+            } else {
+              element.textContent = target.toLocaleString();
+            }
+          }
+          requestAnimationFrame(updateCounter);
+        }
+        // Render stats with animation
+        const statsGrid = document.getElementById('statsGrid');
+        statsGrid.innerHTML = `
+          <div data-aos="flip-up"><div class="stat-number">0</div><p class="text-xl sm:text-2xl text-gray-400 mt-3 sm:mt-4">Repositories</p></div>
+          <div data-aos="flip-up" data-aos-delay="200"><div class="stat-number">0</div><p class="text-xl sm:text-2xl text-gray-400 mt-3 sm:mt-4">Stars</p></div>
+          <div data-aos="flip-up" data-aos-delay="400"><div class="stat-number">0</div><p class="text-xl sm:text-2xl text-gray-400 mt-3 sm:mt-4">Forks</p></div>
+          <div data-aos="flip-up" data-aos-delay="600"><div class="stat-number">0</div><p class="text-xl sm:text-2xl text-gray-400 mt-3 sm:mt-4">Warriors</p></div>
+        `;
+        const counterElements = statsGrid.querySelectorAll('.stat-number');
+        animateCounter(counterElements[0], stats.repos);
+        animateCounter(counterElements[1], stats.stars);
+        animateCounter(counterElements[2], stats.forks);
+        animateCounter(counterElements[3], stats.members);
+        // Render projects
+        document.getElementById('repos').innerHTML = stats.topRepos.map((r, i) => `
+          <a href="${r.html_url}" target="_blank" class="card group" data-aos="fade-up" data-aos-delay="${i * 100}">
+            <h3 class="text-2xl sm:text-3xl font-bold group-hover:text-bengal transition">${r.name}</h3>
+            <p class="text-gray-400 my-4 sm:my-6 text-base sm:text-lg">${r.description || 'No description'}</p>
+            <div class="flex gap-4 sm:gap-6 text-base sm:text-lg">
+              ${r.language ? `<span class="px-3 sm:px-4 py-1 sm:py-2 bg-gray-800 rounded-full">${r.language}</span>` : ''}
+              <span>⭐ ${r.stargazers_count}</span>
+              <span>⑂ ${r.forks_count}</span>
+            </div>
+          </a>
+        `).join('');
+        // Render members
+        const membersGrid = document.getElementById('membersGrid');
+        membersGrid.innerHTML = membersRes.length > 0 ? membersRes.map((m, i) => `
+          <a href="${m.html_url}" target="_blank" class="card group text-center" data-aos="fade-up" data-aos-delay="${i * 100}">
+            <img src="${m.avatar_url}" alt="${m.login}" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-4 ring-4 ring-bengal/60 group-hover:ring-bengal transition" />
+            <h3 class="text-xl sm:text-2xl font-bold group-hover:text-bengal transition">${m.login}</h3>
+          </a>
+        `).join('') : '<p class="col-span-full text-gray-400 text-center">No public members yet. Join us!</p>';
+        // Language Chart
+        const langCount = {};
+        reposRes.forEach(r => {
+          if (r.language) {
+            langCount[r.language] = (langCount[r.language] || 0) + 1;
+          }
+        });
+        if (typeof Chart !== 'undefined' && Object.keys(langCount).length > 0) {
+          new Chart(document.getElementById('langChart'), {
+            type: 'doughnut',
+            data: {
+              labels: Object.keys(langCount),
+              datasets: [{
+                data: Object.values(langCount),
+                backgroundColor: ['#f57c00','#1976d2','#43a047','#e91e63','#00bcd4','#ff9800','#9c27b0']
+              }]
+            },
+            options: {
+              plugins: {
+                legend: {
+                  labels: {
+                    color: '#fff',
+                    font: { size: 14, sm:16 }
+                  }
+                }
+              },
+              responsive: true,
+              maintainAspectRatio: false
+            }
+          });
+        } else {
+          document.getElementById('langChart').parentNode.innerHTML = '<p class="text-red-500">Failed to load chart. Please check console for errors.</p>';
+        }
+      } catch (e) {
+        console.error("Error in loadOrgData:", e);
+        // Show error messages
+        document.getElementById('orgBioContainer').innerHTML = '<p class="text-red-500">Failed to load organization info. Please try again later.</p>';
+        document.getElementById('statsGrid').innerHTML = '<p class="col-span-full text-red-500">Failed to load stats.</p>';
+        document.getElementById('repos').innerHTML = '<p class="col-span-full text-red-500">Failed to load projects.</p>';
+        document.getElementById('membersGrid').innerHTML = '<p class="col-span-full text-red-500">Failed to load members.</p>';
+      }
+    }
+    window.addEventListener('load', loadOrgData);
